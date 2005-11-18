@@ -1,0 +1,3 @@
+2005-05-27:
+ - Version initiale permettant de tailer un fichier et fournissant un
+   hook pour l'analyse des lignes trouvées

@@ -1,0 +1,28 @@
+syslog2stats
+Programme écrit par Denis Sacchet (c) 2005
+Ce programme est fourni sous licence BSD (Voir le fichier LICENSE)
+
+Ce programme est destiné à analyser en temps réel un fichier de configuration
+de type syslog. Il compare chaque nouvelle ligne à un ensemble d'expression
+régulière. Chaque expression régulière est associée à une clé. Cette clé est
+la première partie d'une base de données de type HASH et contenant également
+le nombre de fois que cette valeur a été rencontrée. Si une ligne correspond
+à une expression régulière, la valeur correspondant à la clé dans la base de
+données est incrémentée de 1.
+
+Cette base de données est ensuite servie par un miniagent SNMP qui présentent
+ces valeurs.
+
+La base de données utilise l'implématation de Sleepycat de la Berkeley DB.
+Les expressions régulières utilise la libpcre compatible avec la définition
+posix.
+La partie s'occupant de la lecture du fichier de log est inspirée par le
+code source de l'utilitaire tail tel qu'il est fourni dans la distribution
+Gentoo et le package coreutils.
+
+Ce programme a été développé sur une plateforme Gentoo/Linux 2.6 et est
+destiné à l'origine à etre utilisé sur cette plate forme. Aucun effort n'a
+été fourni pour rendre ce programme portable bien qu'il est été programmé
+uniquement avec des appels systèmes Unix standard. Il pourrait donc etre
+facilement compilé sur d'autres Unix avec très peu de changements.
+

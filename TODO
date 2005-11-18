@@ -1,0 +1,5 @@
+- Agent SNMP
+- Portabilité sur d'autres plate forme
+- Intégration d'autogen / autoconf / ...
+- Documentation d'installation et d'utilisation
+- Mode "daemon"
