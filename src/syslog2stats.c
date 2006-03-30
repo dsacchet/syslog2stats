@@ -91,7 +91,7 @@ int main(
 	char*buffer_variable;
 	int ovector[30];
 
-	/* On rÃ©cupÃ¨re le nom du programme pour l'aide */
+	/* On récupére le nom du programme pour l'aide */
 
 	name=rindex(argv[0],'/');
 	if(name == NULL) {
@@ -130,71 +130,71 @@ int main(
 		}
 	}
 
-	/* Si le fichier de configuration n'est pas spÃ©cifiÃ© */
-	/* on utilise par dÃ©faut un fichier nommÃ© stats.conf */
-	/* dans le rÃ©pertoire courant */
+	/* Si le fichier de configuration n'est pas spécifié */
+	/* on utilise par défaut un fichier nommé stats.conf */
+	/* dans le répertoire courant */
 	
 	if(config_file==NULL) {
 		config_file=malloc(strlen(DFT_CONFIG_FILE)+1);
 		config_file=DFT_CONFIG_FILE;
 	}
 	
-	/* Si il ne reste pas un argument, le fichier Ã  traiter n'a */
-	/* pas Ã©tÃ© spÃ©cifiÃ© => erreur */
+	/* Si il ne reste pas un argument, le fichier à  traiter n'a */
+	/* pas été spécifié => erreur */
 
 	if(argc-optind != 1) {
 		printf("Pas de fichier\n");
 		return 1;
 	}
 
-	/* Le fichier Ã  traiter est le prochaine argument */
+	/* Le fichier à traiter est le prochaine argument */
 	
 	file=(char*)argv[optind];
 
 	/* Ouverture du fichier de configuration */
 	fd=open(config_file,O_RDONLY);
 	if(fd==-1) {
-		printf("Erreur Ã  l'ouverture du fichier de configuration\n");
+		printf("Erreur à l'ouverture du fichier de configuration\n");
 		return 1;
 	}
 
 	/* Parsing du fichier de configuration */
 	/* Une ligne par configuration */
-	/* avant le : c'est la clÃ© */
-	/* aprÃ¨s c'est l'expression rÃ©guliÃ¨re */
+	/* avant le : c'est la clé */
+	/* après c'est l'expression régulière */
 
 	nb_char=0;
 	nb_regexp=0;
 	need_to_read=1;
 	while(read(fd,&c,1)) {
 
-		/* On a trouvÃ© le sÃ©parateur entre la clÃ© et la regexp */
-		/* Notez que la clÃ© ne peut donc pas contenir de : */
+		/* On a trouvé le séparateur entre la clé et la regexp */
+		/* Notez que la clé ne peut donc pas contenir de : */
 		if(c==':') {
 			i=1;
 		}
 
-		/* Tant qu'on n'a pas trouvÃ© la fin de ligne, on incrÃ©mente */
-		/* le nombre de caractÃ¨res lus */
+		/* Tant qu'on n'a pas trouvé la fin de ligne, on incrémente */
+		/* le nombre de caractères lus */
 		if(c!='\n') {
 			nb_char++;
 		}
 
-		/* Si on a trouvÃ© Ã  la fois le caractÃ¨re de sÃ©paration */
-		/* et le caractÃ¨re de fin de ligne, OK, on peut traiter */
+		/* Si on a trouvé à la fois le caractère de séparation */
+		/* et le caractère de fin de ligne, OK, on peut traiter */
 		if(i==1 && c =='\n') {
 
-			/* On revient en arriÃ¨re dans le fichier du */
-			/* nombre de caractÃ¨res et on alloue un espace */
-			/* mÃ©moire de la bonne taille pour la lecture */
+			/* On revient en arrière dans le fichier du */
+			/* nombre de caractères et on alloue un espace */
+			/* mémoire de la bonne taille pour la lecture */
 			/* du bloc */
 			lseek(fd,-nb_char-1,SEEK_CUR);
 			cle=malloc(nb_char+1);
 			read(fd,cle,nb_char);
 
-			/* On place ensuite les caractÃ¨res de fin de */
+			/* On place ensuite les caractères de fin de */
 			/* chaine correctement pour la suite des */
-			/* opÃ©rations */
+			/* opérations */
 			cle[nb_char]='\0';
 			valeur=index(cle,':')+1;
 			cle[index(cle,':')-cle]='\0';
@@ -219,10 +219,10 @@ int main(
 
 				tmp_pe=pcre_study(tmp_re,0,&pcre_errptr);
 				if(pcre_errptr == NULL) {
-					printf("OK sur l'Ã©tude de la regexp (%s) de la clÃ© %s\n",valeur,cle);
+					printf("OK sur l'étude de la regexp (%s) de la clé %s\n",valeur,cle);
 					cur_pl->pe=tmp_pe;
 				} else {
-					printf("Erreur sur l'Ã©tude de la regexp (%s) de la clÃ© %s\n",valeur,cle);
+					printf("Erreur sur l'étude de la regexp (%s) de la clé %s\n",valeur,cle);
 				}
 				cur_pl=tmp_pl;
 			}
@@ -238,14 +238,14 @@ int main(
 	
 	tmp_pl=first_pl;
 	while(tmp_pl != NULL) {
-			printf("On a une regexp pour la clÃ© %s (re: %d pe: %d)\n",tmp_pl->name,tmp_pl->re,tmp_pl->pe);
+			printf("On a une regexp pour la clé %s (re: %d pe: %d)\n",tmp_pl->name,tmp_pl->re,tmp_pl->pe);
 			tmp_pl=tmp_pl->next;
 	}
 	
 	/* Ouverture du fichier et positionnement Ã  la fin */
 	fd=open(file,O_RDONLY);
 	if(fd==-1) {
-		printf("Erreur Ã  l'ouverture du fichier\n");
+		printf("Erreur à l'ouverture du fichier\n");
 		return 1;
 	}
 	end_pos=lseek(fd,0,SEEK_END);
@@ -275,8 +275,8 @@ int main(
 	}
 	
 	/* On parcourt le reste du fichier Ã  l'envers jusqu'Ã  */
-	/* atteindre le dÃ©but du fichier ou bien le nombre de */
-	/* lignes dÃ©sirÃ© */
+	/* atteindre le début du fichier ou bien le nombre de */
+	/* lignes désiré */
 	
 	while(first_pos_to_print == 0 &&
 			cur_pos != start_pos &&
@@ -296,11 +296,11 @@ int main(
 		}
 	}
 
-	/* On commence le traitement Ã  partir de first_pos_to_print */
+	/* On commence le traitement à partir de first_pos_to_print */
 	
 	cur_pos=lseek(fd,first_pos_to_print,SEEK_SET);
 	
-	/* On initialise la liste chainÃ©e des buffers et les variables */
+	/* On initialise la liste chainée des buffers et les variables */
 	/* de controle de la boucle */
 	
 	first_ln=cur_ln=malloc(sizeof(struct linebuffer));
@@ -313,22 +313,22 @@ int main(
 	DB *db_stats=NULL;
 	result=db_create(&db_stats,NULL,0);
 	if(result != 0) {
-		printf("Erreur Ã  la crÃ©ation de l'environnement DB.\n");
+		printf("Erreur à la création de l'environnement DB.\n");
 		return 1;
 	}
 	result=db_stats->open(db_stats,NULL,"stats.db",NULL,DB_HASH,DB_CREATE,0);
 	if(result != 0) {
-		printf("Erreur Ã  l'ouverture de DB.\n");
+		printf("Erreur à l'ouverture de DB.\n");
 		return 1;
 	}
 	db_stats->close(db_stats,0);
 	
 	while(1) {
 
-		/* Si le traitement de la prÃ©cÃ©dente lecture est fini */
-		/* (plus de caractÃ¨re de retour Ã  la ligne, alors on */
+		/* Si le traitement de la précédente lecture est fini */
+		/* (plus de caractère de retour à la ligne, alors on */
 		/* lit dans le fichier, si jamais la lecture retourne */
-		/* 0 caractÃ¨res, on dort un peu avant de rÃ©essayer */
+		/* 0 caractères, on dort un peu avant de réessayer */
 		
 		if(need_to_read) {
 			nb_char_read=read(fd,buffer,BUFSIZE);
@@ -339,18 +339,18 @@ int main(
 			}
 		}
 
-		/* On cherche un caractÃ¨re de retour Ã  la ligne */
+		/* On cherche un caractère de retour à la ligne */
 		newline=index(buffer,'\n');
 
 		/* Si on en trouve un, on affiche le contenu de la ligne */
 		/* (pour l'instant, par la suite, on fera le traitement */
-		/* avec les regexp et la mise Ã  jour d'une base de donnÃ©es */
+		/* avec les regexp et la mise à jour d'une base de données */
 		/* de type berkeley attaquable en SNMP ...) */
 		
 		if(newline != NULL) {
 
-			/* Il faut dÃ©jÃ  compter le nombre de caractÃ¨res */
-			/* prÃ©sents dans le buffer liste chainÃ©e afin  */
+			/* Il faut déjà compter le nombre de caractères */
+			/* présents dans le buffer liste chainée afin  */
 			/* de mallocer assez d'espace pour l'affichage */
 			/* ou traitement de la ligne */
 			
@@ -362,7 +362,7 @@ int main(
 			}
 			nb_char+=tmp_ln->nb_char+newline-buffer;
 
-			/* CrÃ©ation de la chaine de caractÃ¨re */
+			/* Création de la chaine de caractère */
 			
 			buffer_variable=(char*)malloc(sizeof(char)*nb_char+1);
 
@@ -400,7 +400,7 @@ int main(
 			}
 			free(buffer_variable);
 
-			/* On libÃ¨re la liste chainÃ©e pour recommencer avec */
+			/* On libère la liste chainée pour recommencer avec */
 			/* une vide */
 			
 			cur_ln=tmp_ln=first_ln;
@@ -412,8 +412,8 @@ int main(
 			cur_ln->nb_char=0;
 			first_ln=cur_ln;
 
-			/* On met Ã  jour le buffer de lecture et on dit */
-			/* qu'on a encore des caractÃ¨res Ã  traiter dans */
+			/* On met à jour le buffer de lecture et on dit */
+			/* qu'on a encore des caractères à traiter dans */
 			/* celui-ci */
 			
 			memcpy(buffer,newline+1,nb_char_read+(ssize_t)buffer-(ssize_t)newline-1);
@@ -422,7 +422,7 @@ int main(
 			need_to_read=0;
 		} else {
 
-			/* On regarde si le nombre de caractÃ¨re du buffer */
+			/* On regarde si le nombre de caractère du buffer */
 			/* rentre dans l'espace restant dans le chunk actuel */
 			
 			/* Si oui, on copie dedans */
@@ -437,13 +437,13 @@ int main(
 			} else {
 				/* Copy du premier bout dans le buffer courant */
 				memcpy(cur_ln->buffer+cur_ln->nb_char,buffer,BUFSIZE-cur_ln->nb_char);
-				/* CrÃ©ation d'un nouveau buffer */
+				/* Création d'un nouveau buffer */
 				tmp_ln=malloc(sizeof(struct linebuffer));
 				tmp_ln->nb_char=0;
 				tmp_ln->next=NULL;
 				/* Copie de l'autre bout dans le nouveau buffer */
 				memcpy(tmp_ln->buffer,buffer+BUFSIZE-cur_ln->nb_char,cur_ln->nb_char);
-				/* Mise Ã  jour des compteurs */
+				/* Mise à jour des compteurs */
 				tmp_ln->nb_char=cur_ln->nb_char;
 				cur_ln->nb_char=BUFSIZE;
 				/* On fait pointer cur_ln sur le nouveau buffer */

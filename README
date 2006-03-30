@@ -21,8 +21,8 @@ code source de l'utilitaire tail tel qu'il est fourni dans la distribution
 Gentoo et le package coreutils.
 
 Ce programme a été développé sur une plateforme Gentoo/Linux 2.6 et est
-destiné à l'origine à etre utilisé sur cette plate forme. Aucun effort n'a
+destiné à l'origine à être utilisé sur cette plate forme. Aucun effort n'a
 été fourni pour rendre ce programme portable bien qu'il est été programmé
-uniquement avec des appels systèmes Unix standard. Il pourrait donc etre
+uniquement avec des appels systèmes Unix standard. Il pourrait donc être
 facilement compilé sur d'autres Unix avec très peu de changements.
 
