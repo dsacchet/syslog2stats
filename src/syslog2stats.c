@@ -8,10 +8,11 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
-#include <db.h>
+#include <gdbm.h>
 #include <pcre.h>
 
 #define	BUFSIZE	8
+#define UNSIGNEDLONGSIZE 100
 
 #ifndef MAX
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
@@ -22,7 +23,70 @@
 #endif
 				       
 #define DFT_CONFIG_FILE "stats.conf"
-				       
+
+typedef struct pcrelist {
+	char *name;
+	pcre *re;
+	pcre_extra *pe;
+	struct pcrelist *next;
+} pcrelist;
+
+typedef struct linebuffer {
+	char buffer[BUFSIZE+1];
+	size_t nb_char;
+	struct linebuffer *next;
+} linebuffer;
+
+/* Recherche une cle dans la liste chainee, si la cle est
+ * retrouvee, on renvoie un pointeur sur le maillon en question
+ * sinon on renvoi NULL */
+
+pcrelist* pcrelist_search_name(pcrelist*pl,char*name) {
+	while(pl->next != NULL) {
+		if(strcmp(pl->name,name) == 0) {
+			return pl;
+		}
+	}
+	return NULL;
+}
+
+/* Commentaire a faire*/
+
+int increment_key(GDBM_FILE dbf,char*keyname) {
+
+	/* Variables locales */
+	int ret;
+	char*endptr;
+	datum key, current_value;
+	unsigned long value = 0;
+
+	/* On construit une cle a chercher */
+	key.dptr=keyname;
+	key.dsize=strlen(keyname)+1;
+	ret = gdbm_exists(dbf,key);
+
+	/* Si la cle existe, on recupere la valeur */
+	if(ret != 0) {
+		current_value=gdbm_fetch(dbf,key);
+		value=strtoul(current_value.dptr,&endptr,10);
+		free(current_value.dptr);
+
+		/* Si la valeur n'est pas un chiffre ou vide, on sort */
+		if( current_value.dptr == endptr || ! (current_value.dptr != '\0' && endptr == '\0') ) {
+			return 0;
+		}
+	}
+
+	/* On libere la valeur actuelle */
+	current_value.dptr=malloc(UNSIGNEDLONGSIZE);
+	sprintf(current_value.dptr,"%ld",value+1);
+	current_value.dsize=strlen(key.dptr)+1;
+	gdbm_store(dbf,key,current_value,GDBM_REPLACE);
+	return 1;
+}
+
+/* On commence le programme */
+
 int main(
 	int	argc,
 	char	*argv[]
@@ -57,39 +121,30 @@ int main(
 		{ "config-files",	required_argument,	NULL,	'c'}
 	};
 	
-	struct linebuffer {
-		char buffer[BUFSIZE+1];
-		size_t nb_char;
-		struct linebuffer *next;
-	};
+	linebuffer *first_ln;
+	linebuffer *cur_ln;
+	linebuffer *tmp_ln;
 
-	struct linebuffer *first_ln;
-	struct linebuffer *cur_ln;
-	struct linebuffer *tmp_ln;
-
-	struct pcrelist {
-		char *name;
-		pcre *re;
-		pcre_extra *pe;
-		struct pcrelist *next;
-	};
-
-	struct pcrelist *first_pl;
-	struct pcrelist *cur_pl;
-	struct pcrelist *tmp_pl;
+	pcrelist *first_pl;
+	pcrelist *cur_pl;
+	pcrelist *tmp_pl;
 	
 	pcre *tmp_re;
 	pcre_extra *tmp_pe;
 	
-	char *pcre_errptr;
+	const char *pcre_errptr;
 	int pcre_erroffset;
 	
+	int result;
 	char*newline;
 	char*cle;
 	char*valeur;
 	int nb_regexp=0;
 	char*buffer_variable;
 	int ovector[30];
+
+	GDBM_FILE dbf;
+	datum key, nextkey;
 
 	/* On récupére le nom du programme pour l'aide */
 
@@ -142,8 +197,12 @@ int main(
 	/* Si il ne reste pas un argument, le fichier à  traiter n'a */
 	/* pas été spécifié => erreur */
 
-	if(argc-optind != 1) {
-		printf("Pas de fichier\n");
+	if(argc-optind == 0) {
+		printf("You need to specified a file to watch\n");
+		return 1;
+	}
+	if(argc-optind > 1) {
+		printf("You specified too many argument, we can watch once file per run\n");
 		return 1;
 	}
 
@@ -154,7 +213,8 @@ int main(
 	/* Ouverture du fichier de configuration */
 	fd=open(config_file,O_RDONLY);
 	if(fd==-1) {
-		printf("Erreur à l'ouverture du fichier de configuration\n");
+		printf("Can't open the configuration file\n");
+		printf("(We try '%s')\n",config_file);
 		return 1;
 	}
 
@@ -201,9 +261,10 @@ int main(
 
 			tmp_re=pcre_compile(valeur,0,&pcre_errptr,&pcre_erroffset,NULL);
 			if(tmp_re == NULL) {
-				printf("Erreur sur la regexp (%s) de la clÃ© %s\n",valeur,cle);
+				printf("The regexp '%s' specified for key '%s' is not valid\n",valeur,cle);
+				return 1;
 			} else {
-				printf("OK sur la regexp (%s) de la clÃ© %s\n",valeur,cle);
+				printf("The regexp '%s' specified for key '%s' is valid\n",valeur,cle);
 				nb_regexp++;
 				if(nb_regexp==1) {
 					first_pl=cur_pl=tmp_pl=malloc(sizeof(struct pcrelist));
@@ -219,10 +280,11 @@ int main(
 
 				tmp_pe=pcre_study(tmp_re,0,&pcre_errptr);
 				if(pcre_errptr == NULL) {
-					printf("OK sur l'étude de la regexp (%s) de la clé %s\n",valeur,cle);
+					printf("The study of the regexp '%s' specified for key '%s' failed\n",valeur,cle);
 					cur_pl->pe=tmp_pe;
 				} else {
-					printf("Erreur sur l'étude de la regexp (%s) de la clé %s\n",valeur,cle);
+					printf("The study of the regexp '%s' specified for key '%s' was a success\n",valeur,cle);
+					return 1;
 				}
 				cur_pl=tmp_pl;
 			}
@@ -236,21 +298,40 @@ int main(
 	}
 	nb_char=0;
 	
+	printf("List of key and regexp :\n");
 	tmp_pl=first_pl;
 	while(tmp_pl != NULL) {
-			printf("On a une regexp pour la clé %s (re: %d pe: %d)\n",tmp_pl->name,tmp_pl->re,tmp_pl->pe);
+			printf("%s : %s (%d)\n",tmp_pl->name,tmp_pl->re,tmp_pl->pe);
 			tmp_pl=tmp_pl->next;
 	}
 	
-	/* Ouverture du fichier et positionnement Ã  la fin */
+	/* Initialisation de la base de donnees */
+	dbf=gdbm_open("/tmp/syslog2stats.db", 512, GDBM_WRCREAT | GDBM_SYNC, S_IRUSR | S_IWUSR, 0);
+	if(dbf == NULL) {
+		printf("Cannot create database /tmp/syslog2stats.db\n");
+		return 1;
+	}
+
+	/* On nettoie les cles qui ne sont plus utilisees */
+	key=gdbm_firstkey(dbf);
+	while(key.dptr) {
+		nextkey=gdbm_nextkey(dbf,key);
+		if ( pcrelist_search_name(first_pl,key.dptr) == NULL) {
+			gdbm_delete(dbf,key);
+			free (key.dptr);
+		}
+		key=nextkey;
+	}
+
+	/* Ouverture du fichier et positionnement a la fin */
 	fd=open(file,O_RDONLY);
 	if(fd==-1) {
-		printf("Erreur à l'ouverture du fichier\n");
+		printf("Cannot open the file '%s' to watch\n",file);
 		return 1;
 	}
 	end_pos=lseek(fd,0,SEEK_END);
 
-	/* On lit le dernier chunk dont la taille est infÃ©rieure Ã  */
+	/* On lit le dernier chunk dont la taille est infÃ©rieurea */
 	/* BUFSIZE afin d'avoir un nombre entier de chunk pour la */
 	/* boucle suivante */
 	
@@ -261,7 +342,7 @@ int main(
 	buffer[nb_char]='\0';
 
 	/* On analyse ce chunk pour la prÃ©sence de caractÃ¨res de */
-	/* retour Ã  la ligne */
+	/* retour a la ligne */
 
 	for(i=(int)nb_char-1;i>=0;i--) {
 		if(buffer[i] == '\n') {
@@ -274,9 +355,9 @@ int main(
 		}
 	}
 	
-	/* On parcourt le reste du fichier Ã  l'envers jusqu'Ã  */
-	/* atteindre le début du fichier ou bien le nombre de */
-	/* lignes désiré */
+	/* On parcourt le reste du fichier a l'envers jusqu'a */
+	/* atteindre le debut du fichier ou bien le nombre de */
+	/* lignes desire */
 	
 	while(first_pos_to_print == 0 &&
 			cur_pos != start_pos &&
@@ -296,11 +377,11 @@ int main(
 		}
 	}
 
-	/* On commence le traitement à partir de first_pos_to_print */
+	/* On commence le traitement a partir de first_pos_to_print */
 	
 	cur_pos=lseek(fd,first_pos_to_print,SEEK_SET);
 	
-	/* On initialise la liste chainée des buffers et les variables */
+	/* On initialise la liste chainee des buffers et les variables */
 	/* de controle de la boucle */
 	
 	first_ln=cur_ln=malloc(sizeof(struct linebuffer));
@@ -308,27 +389,13 @@ int main(
 	first_ln->next=NULL;
 	newline=NULL;
 	need_to_read=1;
-
-	int result;
-	DB *db_stats=NULL;
-	result=db_create(&db_stats,NULL,0);
-	if(result != 0) {
-		printf("Erreur à la création de l'environnement DB.\n");
-		return 1;
-	}
-	result=db_stats->open(db_stats,NULL,"stats.db",NULL,DB_HASH,DB_CREATE,0);
-	if(result != 0) {
-		printf("Erreur à l'ouverture de DB.\n");
-		return 1;
-	}
-	db_stats->close(db_stats,0);
 	
 	while(1) {
 
-		/* Si le traitement de la précédente lecture est fini */
-		/* (plus de caractère de retour à la ligne, alors on */
+		/* Si le traitement de la precedente lecture est fini */
+		/* (plus de caractere de retour a la ligne, alors on */
 		/* lit dans le fichier, si jamais la lecture retourne */
-		/* 0 caractères, on dort un peu avant de réessayer */
+		/* 0 caracteres, on dort un peu avant de reessayer */
 		
 		if(need_to_read) {
 			nb_char_read=read(fd,buffer,BUFSIZE);
@@ -339,7 +406,7 @@ int main(
 			}
 		}
 
-		/* On cherche un caractère de retour à la ligne */
+		/* On cherche un caractere de retour a la ligne */
 		newline=index(buffer,'\n');
 
 		/* Si on en trouve un, on affiche le contenu de la ligne */
@@ -392,6 +459,7 @@ int main(
 						0, 0, ovector, 30);
 				if(result>0) {
 					printf("Regexp %s match on string '%s'\n",tmp_pl->name,buffer_variable);
+					increment_key(dbf,tmp_pl->name);
 				}
 				if(result<-1) {
 					printf("Regexp %s dont match on string '%s' and raise error %d\n",tmp_pl->name,buffer_variable,result);
