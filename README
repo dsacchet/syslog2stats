@@ -3,8 +3,8 @@ Programme écrit par Denis Sacchet (c) 2005
 Ce programme est fourni sous licence BSD (Voir le fichier LICENSE)
 
 Ce programme est destiné à analyser en temps réel un fichier de configuration
-de type syslog. Il compare chaque nouvelle ligne à un ensemble d'expression
-régulière. Chaque expression régulière est associée à une clé. Cette clé est
+de type syslog. Il compare chaque nouvelle ligne à un ensemble d'expressions
+régulières. Chaque expression régulière est associée à une clé. Cette clé est
 la première partie d'une base de données de type HASH et contenant également
 le nombre de fois que cette valeur a été rencontrée. Si une ligne correspond
 à une expression régulière, la valeur correspondant à la clé dans la base de
