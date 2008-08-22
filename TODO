@@ -2,4 +2,16 @@
 - Portabilité sur d'autres plate forme
 - Intégration d'autogen / autoconf / ...
 - Documentation d'installation et d'utilisation
-- Mode "daemon"
+- Mode "daemon" (OK 20080822)
+- Configuration plus complexe avec possibilité de plus d'actions :
+ * compteur (<=> fonctionnalité actuel)
+ * trigger (<=> lancement d'une commande sur matche)
+- Possibilité de monitorer plusieurs fichiers à la fois (avec des threads)
+- Mettre au propre les logs et le retour d'information
+ * syslog si désiré
+ * gestion de niveau de log (debug, info, etc ...)
+ * retour d'erreur sur stderr (au lieu de stdout)
+ * etc ...
+- Pouvoir recharger la configuration sans relancer le programme (SIGHUP)
+- Pouvoir terminer le programme proprement
+- Profiling memoire (OK 20080822)

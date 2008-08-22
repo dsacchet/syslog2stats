@@ -8,12 +8,41 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
-#include <gdbm.h>
 #include <pcre.h>
 #include "utils.h"
 #include "syslog2stats.h"
 
 #define SSIZE_MAX 32767
+
+unsigned int reload_config=0;
+unsigned int normal_termination=0;
+unsigned int fatal_termination=0;
+unsigned int flush_to_disk=0;
+
+
+void signal_handler_update_config(int signo) {
+	printf("signal %d (update config)\n",signo);
+	reload_config=1;
+}
+
+void signal_handler_termination(int signo) {
+	printf("signal %d (termination)\n",signo);
+	switch(signo) {
+	case SIGINT:
+		normal_termination=1;
+		break;
+	case SIGTERM:
+		fatal_termination=1;
+		break;
+	default:
+		break;
+	}
+}
+
+void signal_handler_flush_to_disk(int signo) {
+	printf("signal %d (flush to disk)\n",signo);
+	flush_to_disk=1;
+}
 
 /* Recherche une cle dans la liste chainee, si la cle est
  * retrouvee, on renvoie un pointeur sur le maillon en question
@@ -85,41 +114,6 @@ int pcrelist_insert(pcrelist**pl,const char*name, pcre*re, pcre_extra*pe) {
 	return 0;
 }
 
-/* Incremente le compteur associé à la clé passée en paramètre */
-
-int increment_key(GDBM_FILE dbf,char*keyname) {
-
-	/* Variables locales */
-	int ret;
-	char*endptr;
-	datum key, current_value;
-	unsigned long value = 0;
-
-	/* On construit une cle a chercher */
-	key.dptr=keyname;
-	key.dsize=strlen(keyname)+1;
-	ret = gdbm_exists(dbf,key);
-
-	/* Si la cle existe, on recupere la valeur */
-	if(ret != 0) {
-		current_value=gdbm_fetch(dbf,key);
-		value=strtoul(current_value.dptr,&endptr,10);
-		free(current_value.dptr);
-
-		/* Si la valeur n'est pas un chiffre ou vide, on sort */
-		if( current_value.dptr == endptr || ! (current_value.dptr != '\0' && endptr == '\0') ) {
-			return 0;
-		}
-	}
-
-	/* On libere la valeur actuelle */
-	current_value.dptr=malloc(UNSIGNEDLONGSIZE);
-	sprintf(current_value.dptr,"%ld",value+1);
-	current_value.dsize=strlen(key.dptr)+1;
-	gdbm_store(dbf,key,current_value,GDBM_REPLACE);
-	return 1;
-}
-
 /* Lit la configuration du fichier passe en parametre et retourne une liste *
  * d'expressions regulieres validees */
 
@@ -130,7 +124,7 @@ pcrelist* read_config(const char * config_file) {
 	unsigned int nb_regexp=0;
 	bool_t need_to_read;
 	char c;
-	int i;
+	int i = 0;
 	unsigned int nb_lines = 0;
 	char*cle;
 	char*valeur;
@@ -217,6 +211,7 @@ pcrelist* read_config(const char * config_file) {
 			}
 			nb_char=0;
 			lseek(fd,1,SEEK_CUR);
+			free(cle);
 		}
 		if(i==0 && c == '\n') {
 			nb_lines++;
@@ -353,6 +348,7 @@ int main(
 	char*config_file=NULL;
 	buffer_t*buffer;
 	char*temp;
+	bool_t daemonize = FALSE;
 
 	char		*name;
 	char		*file;
@@ -365,6 +361,7 @@ int main(
 	static const struct option	long_options[] = {
 		{ "help",	no_argument,	NULL,	'h'},
 		{ "lines",	required_argument,	NULL,	'n'},
+		{ "daemon",	no_argument,	NULL,	'D'},
 		{ "config-files",	required_argument,	NULL,	'c'}
 	};
 	
@@ -373,9 +370,6 @@ int main(
 
 	int result;
 	int ovector[30];
-
-	GDBM_FILE dbf;
-	datum key, nextkey;
 
 	/* On récupére le nom du programme pour l'aide */
 
@@ -391,7 +385,7 @@ int main(
 	opterr=0;
 	endconv=(char**)malloc(sizeof(char*));
 
-	while((c=getopt_long(argc,argv,"hn:c:",long_options,NULL)) != -1) {
+	while((c=getopt_long(argc,argv,"hDn:c:",long_options,NULL)) != -1) {
 		switch(c) {
 			case 'h':
 				printf("Aide\n");
@@ -405,6 +399,16 @@ int main(
 					return 1;
 				}
 				break;
+			case 'D':
+				printf("Debug : coucou\n");
+				if(daemonize==TRUE) {
+					printf("Daemonize vaut FALSE\n");
+					daemonize=FALSE;
+				} else {
+					printf("Daemonize vaut TRUE\n");
+					daemonize=TRUE;
+				}
+				break;
 			case 'c':
 				config_file=malloc(strlen(optarg)+1);
 				memcpy(config_file,optarg,strlen(optarg));
@@ -415,6 +419,7 @@ int main(
 				break;
 		}
 	}
+	free(endconv);
 
 	/* Si le fichier de configuration n'est pas spécifié */
 	/* on utilise par défaut un fichier nommé stats.conf */
@@ -447,24 +452,6 @@ int main(
 		return 1;
 	}
 
-	/* Initialisation de la base de donnees */
-	dbf=gdbm_open("/tmp/syslog2stats.db", 512, GDBM_WRCREAT | GDBM_SYNC, S_IRUSR | S_IWUSR, 0);
-	if(dbf == NULL) {
-		printf("Cannot create database /tmp/syslog2stats.db\n");
-		return 1;
-	}
-
-	/* On nettoie les cles qui ne sont plus utilisees */
-	key=gdbm_firstkey(dbf);
-	while(key.dptr) {
-		nextkey=gdbm_nextkey(dbf,key);
-		if ( pcrelist_search_name(pl,key.dptr) == NULL) {
-			gdbm_delete(dbf,key);
-			free (key.dptr);
-		}
-		key=nextkey;
-	}
-
 	/* Ouverture du fichier et positionnement a la fin */
 	fd=open(file,O_RDONLY);
 	if(fd==-1) {
@@ -479,7 +466,27 @@ int main(
 	buffer=buffer_init("\n",2048);
 	read_to_buffer(fd,buffer);
 
+	if(daemonize==TRUE) {
+		printf("We will go on background ! Bye bye ...\n");
+		daemon(0,0);
+	}
+
+	signal_ignore(SIGPIPE);
+	signal_ignore(SIGUSR2);
+
+	signal(SIGHUP,signal_handler_update_config);
+	signal(SIGINT,signal_handler_termination);
+	signal(SIGTERM,signal_handler_termination);
+	signal(SIGUSR1,signal_handler_flush_to_disk);
+
 	while(1) {
+		if(normal_termination || fatal_termination) {
+			buffer_destroy(&buffer);
+			close(fd);
+			pcrelist_destroy(&pl);
+			free(config_file);
+			exit(0);
+		}
 		/* On lit dans le fichier */
 		read_to_buffer(fd,buffer);
 

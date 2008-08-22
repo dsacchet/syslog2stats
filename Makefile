@@ -1,5 +1,5 @@
 #CCFLAGS=-O2 -Wall
-CCFLAGS=-Wall -g -DDEBUG -lgdbm -lpcre
+CCFLAGS=-Wall -g -DDEBUG -lpcre
 
 all: src/utils.c src/syslog2stats.c
 	gcc ${CGFLAGS} -c src/utils.c -o src/utils.o
